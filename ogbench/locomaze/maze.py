@@ -193,7 +193,7 @@ def make_maze_env(loco_env_type, maze_env_type, *args, **kwargs):
             self.render()
             self.mujoco_renderer.viewer.cam.lookat[0] = 2 * (self.maze_map.shape[1] - 3)
             self.mujoco_renderer.viewer.cam.lookat[1] = 2 * (self.maze_map.shape[0] - 3)
-            self.mujoco_renderer.viewer.cam.distance = 5 * (self.maze_map.shape[1] - 2)
+            self.mujoco_renderer.viewer.cam.distance = 5 * (max(self.maze_map.shape[1], self.maze_map.shape[0]))
             self.mujoco_renderer.viewer.cam.elevation = -90
 
         def update_tree(self, tree):
@@ -341,6 +341,7 @@ def make_maze_env(loco_env_type, maze_env_type, *args, **kwargs):
             if options is None:
                 options = {}
             # Set the task goal.
+            no_goal = False
             if 'task_id' in options:
                 # Use the pre-defined task.
                 assert 1 <= options['task_id'] <= self.num_tasks, f'Task ID must be in [1, {self.num_tasks}].'
@@ -354,17 +355,22 @@ def make_maze_env(loco_env_type, maze_env_type, *args, **kwargs):
                 # Randomly sample a task.
                 self.cur_task_id = np.random.randint(1, self.num_tasks + 1)
                 self.cur_task_info = self.task_infos[self.cur_task_id - 1]
+                no_goal = True
 
             # Whether to provide a rendering of the goal.
             render_goal = False
             if 'render_goal' in options:
                 render_goal = options['render_goal']
 
-            # Get initial and goal positions with noise.
-            init_xy = self.add_noise(self.ij_to_xy(self.cur_task_info['init_ij']))
-            goal_xy = self.ij_to_xy(self.cur_task_info['goal_ij'])
-            if self._add_noise_to_goal:
-                goal_xy = self.add_noise(goal_xy)
+            if no_goal:
+                init_xy = self.add_noise(self.ij_to_xy(self.cur_task_info['init_ij']))
+                goal_xy = self.ij_to_xy((-1, -1))
+            else:
+                # Get initial and goal positions with noise.
+                init_xy = self.add_noise(self.ij_to_xy(self.cur_task_info['init_ij']))
+                goal_xy = self.ij_to_xy(self.cur_task_info['goal_ij'])
+                if self._add_noise_to_goal:
+                    goal_xy = self.add_noise(goal_xy)
 
             # First, force set the position to the goal position to obtain the goal observation.
             super().reset(*args, **kwargs)
